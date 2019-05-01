@@ -1,22 +1,84 @@
-from datetime import date, datetime
+import datetime
 from collections import Counter, OrderedDict
+import json
 
 
-def choose_menu():
-    # stub
-    return Counter({'Milk': 5, 'Egg': 1, 'Meat': 100000})
+def get_shedule_from_json(json_shedule, with_updating_date=False):
+    dayshedules = []
+
+    for json_date, json_rangeshedules in json_shedule.items():
+        temp = json_date.split("-")
+        d = datetime.date(int(temp[0]), int(temp[1]), int(temp[2]))
+        dayshedules.append([d, get_dayshedule_from_json(json_rangeshedules)])
+    if with_updating_date is True:
+        start_date = min(key[0] for key in dayshedules)
+        delta = datetime.date.today() - start_date
+        if delta > datetime.timedelta(0):
+            for key in dayshedules:
+                key[0] += delta
+    return Shedule(dayshedules)
 
 
-def choose_dayshedule():
-    # stub
-    s1 = RangeShedule({'Milk': 3, 'Egg': 2, 'Meat': 100000}, 9, 11)
-    s2 = RangeShedule({'Milk': 3, 'Egg': 2, 'Meat': 100000}, 4, 22)
-    s3 = RangeShedule({'Milk': 1, 'Egg': 2, 'Meat': 100000}, 6)
-    return DayShedule([s1, s2, s3])
+def get_dayshedule_from_json(json_rangeshedules):
+    rangeshedules = []
+
+    for json_rangeshedule in json_rangeshedules:
+        rangeshedules.append(RangeShedule(product_counter=json_rangeshedule["product_counter"],
+                                          start_hour=json_rangeshedule["start_hour"],
+                                          end_hour=json_rangeshedule["end_hour"]))
+    return DayShedule(rangeshedules)
+
+
+def show_dict(menu):
+    return ''.join('{} pieces of {}\n'.format(value, key) for key, value in menu.items())
 
 
 def list_products(product_counter):
     return ''.join("{} pieces of {}\n".format(value, key) for key, value in product_counter.items()) + "\n"
+
+
+def choose(name, database_client):
+    answer = None
+    want_to_choose = True
+    print('You can choose from the following ' + name + 's: ')
+    if name == 'shedule':
+        for name_ in database_client.get_shedule_names():
+            print(name_)
+    elif name == 'day shedule':
+        for name_ in database_client.get_dayshedule_names():
+            print(name_)
+    elif name == 'menu':
+        for name_ in database_client.get_meal_names():
+            print(name_)
+    print("To see " + name + " write '? [name]'. For example '? delicious'. Choose name from the previous list.")
+    print("To choose " + name + " write '+ [name]'. For example '+ delicious'. Choose name from the previous list.")
+    while want_to_choose is True:
+        response = input()
+        try:
+            if response[0] == '?' or '+':
+                resp = response.split(' ')
+                if name == 'shedule':
+                    chosen = get_shedule_from_json(database_client.get_shedule(resp[1]))
+                elif name == 'day shedule':
+                    chosen = get_dayshedule_from_json(database_client.get_dayshedule(resp[1]))
+                else:
+                    chosen = database_client.get_meal(resp[1])
+                if response[0] == '+':
+                    answer = chosen
+                    want_to_choose = False
+                else:
+                    if name == 'shedule':
+                        print(chosen.show())
+                    elif name == 'day shedule':
+                        print(chosen.show())
+                    else:
+                        print(show_dict(chosen))
+            else:
+                print("Incorrect format.")
+        except Exception:
+            print("Incorrect format.")
+    print('You have chosen ' + name)
+    return answer
 
 
 def update_menu(product_counter, name):
@@ -83,7 +145,7 @@ def change_rangeshedule(rangeshedule):
             range_process = False
 
 
-def change_dayshedule(dayshedule):
+def change_dayshedule(dayshedule, database_client):
     day_process = True
     while day_process is True:
         resp = input(
@@ -116,7 +178,7 @@ def change_dayshedule(dayshedule):
                                 query = input(
                                     "Do you want to fill menu by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
                                 if query != 'Y':
-                                    rangeshedule.product_counter = choose_menu()
+                                    rangeshedule.product_counter = Counter(choose("menu", database_client))
                                 else:
                                     change_rangeshedule(rangeshedule)
                                 dayshedule.rangeshedules.append(rangeshedule)
@@ -148,7 +210,7 @@ class Notifier:
         self.product_counter = product_counter
 
     def notify(self):
-        if date.today() in self.shedule.shedule:
+        if datetime.date.today() in self.shedule.shedule:
             return self.shedule.notify(self.product_counter)
         else:
             return "You don't have shedule for today"
@@ -157,7 +219,7 @@ class Notifier:
         self.shedule.up_to_date()
         return self.shedule.show()
 
-    def change_shedule(self):
+    def change_shedule(self, database_client):
         process = True
         while process is True:
             response = input("Do you want to change/add/delete shedule of one of the days/go back to menu? '1'/'2'/'3'/'4':").strip()
@@ -169,7 +231,7 @@ class Notifier:
                     try:
                         month = int(mm_dd[0])
                         day = int(mm_dd[1])
-                        change_date = date(year=date.today().year, month=month, day=day)
+                        change_date = datetime.date(year=datetime.date.today().year, month=month, day=day)
                     except Exception:
                         print("Incorrect date type. Try again")
                         continue
@@ -177,7 +239,7 @@ class Notifier:
                         if change_date in self.shedule.shedule:
                             dayshedule = self.shedule.get_dayshedule(change_date)
                             print(dayshedule.show())
-                            change_dayshedule(dayshedule)
+                            change_dayshedule(dayshedule, database_client)
                             self.shedule.shedule[change_date] = dayshedule
                             print(dayshedule.show())
                         else:
@@ -190,9 +252,9 @@ class Notifier:
                             query = input(
                                 "Do you want to fill day shedule by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
                             if query != 'Y':
-                                dayshedule = choose_dayshedule()
+                                dayshedule = choose("day shedule", database_client)
                             else:
-                                change_dayshedule(dayshedule)
+                                change_dayshedule(dayshedule, database_client)
                             self.shedule.shedule[change_date] = dayshedule
                             print(dayshedule.show())
                     elif response == '3':
@@ -230,7 +292,7 @@ class Shedule:
     def up_to_date(self):
         keys_to_pop = []
         for key in self.shedule:
-            if key < date.today():
+            if key < datetime.date.today():
                 keys_to_pop.append(key)
         for key in keys_to_pop:
             self.shedule.pop(key)
@@ -239,11 +301,11 @@ class Shedule:
         return self.shedule[key]
 
     def notify(self, product_counter):
-        return self.shedule[date.today()].notify(product_counter)
+        return self.shedule[datetime.date.today()].notify(product_counter)
 
     def show(self):
         result = ""
-        for key, value in self.shedule.items():
+        for key, value in sorted(self.shedule.items(), key=lambda x: x[0]):
             result += key.strftime("%m.%d") + "\n+++++++++++++++++++++++++++++++++++++++\n\n" \
                       + value.show() + "---------------------------------------\n\n"
         return result
@@ -269,7 +331,7 @@ class DayShedule:
 
     def notify(self, product_counter):
         self.rangeshedules.sort(key=lambda x: (x.end_hour, x.start_hour))
-        curr_hour = datetime.now().hour
+        curr_hour = datetime.datetime.now().hour
         result = "You need to eat these products: \n"
         must_be_purchased = Counter()
         for rangeshedule in self.rangeshedules:

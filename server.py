@@ -1,32 +1,47 @@
 import flask
-import json
 import argparse
+from database import *
 
-# Будет удалено после завершения технических работ
-import datetime
-from shedule import RangeShedule, DayShedule, Shedule, Notifier
-
-s1 = RangeShedule({'Milk': 3, 'Egg': 2, 'Meat': 100000}, 9, 11)
-s2 = RangeShedule({'Milk': 3, 'Egg': 2, 'Meat': 100000}, 4, 22)
-s3 = RangeShedule({'Milk': 1, 'Egg': 2, 'Meat': 100000}, 6)
-s4 = RangeShedule({'Milk': 3, 'Egg': 3, 'Meat': 100000}, 9, 11)
-s5 = RangeShedule({'Milk': 4, 'Egg': 2, 'Meat': 100000}, 13, 15)
-s6 = RangeShedule({'Milk': 5, 'Egg': 1, 'Meat': 100000}, 8)
-d1 = DayShedule([s1, s2, s3])
-d2 = DayShedule([s4, s5, s6])
-
-shed = Shedule([(datetime.date.today() + datetime.timedelta(days=1), d1), (datetime.date.today(), d2)])
-dir_ = {'Milk': 5, 'Egg': 6}
-notifier = Notifier(shed, dir_)
-#
 app = flask.Flask("meal_schedule")
-app.json_notifier = notifier.get_json()
 app.check_info = 'meal_shedule'
 
 
+@app.route('/get_shedule_names', methods=['GET'])
+def get_shedule_names():
+    return json.dumps(get_names(SHEDULES_TABLE_NAME))
+
+
+@app.route('/get_dayshedule_names', methods=['GET'])
+def get_dayshedule_names():
+    return json.dumps(get_names(DAYSHEDULES_TABLE_NAME))
+
+
+@app.route('/get_meal_names', methods=['GET'])
+def get_meal_names():
+    return json.dumps(get_names(MEALS_TABLE_NAME))
+
+
+@app.route('/get_shedule', methods=['GET'])
+def get_shedule():
+    if 'name' in flask.request.args:
+        return json.dumps(get(SHEDULES_TABLE_NAME, flask.request.args['name']))
+
+
+@app.route('/get_dayshedule', methods=['GET'])
+def get_dayshedule():
+    if 'name' in flask.request.args:
+        return json.dumps(get(DAYSHEDULES_TABLE_NAME, flask.request.args['name']))
+
+
+@app.route('/get_meal', methods=['GET'])
+def get_meal():
+    if 'name' in flask.request.args:
+        return json.dumps(get(MEALS_TABLE_NAME, flask.request.args['name']))
+
+
 @app.route('/get_notifier', methods=['GET'])
-def get_notifier():
-    return json.dumps(app.json_notifier) + "\n"
+def get_notifier_():
+    return json.dumps(get_notifier()) + "\n"
 
 
 @app.route('/check', methods=['GET'])
@@ -37,12 +52,27 @@ def check():
 @app.route('/set_notifier', methods=['POST'])
 def set_notifier():
     received_json_data = json.loads(flask.request.data)
-    app.json_notifier = received_json_data
+    update_notifier(received_json_data)
     return 'OK'
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--port', default=50000, type=int)
+    subs = parser.add_subparsers()
+    run_parser = subs.add_parser('run')
+    database_parser = subs.add_parser('create_database')
+    drop_parser = subs.add_parser('drop_database')
+    run_parser.set_defaults(method='run')
+    run_parser.add_argument('--port', default=50000, type=int)
+    database_parser.set_defaults(method='create_database')
+    drop_parser.set_defaults(method='drop_database')
+
     args = parser.parse_args()
-    app.run('127.0.0.1', args.port, threaded=True)
+    if args.method == 'run':
+        database_params['dbname'] = DATABASE_NAME
+        app.run('127.0.0.1', args.port, threaded=True)
+    elif args.method == 'create_database':
+        create_database()
+        create_tables()
+    elif args.method == 'drop_database':
+        drop_database()
