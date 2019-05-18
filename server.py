@@ -3,17 +3,17 @@ import argparse
 from database import *
 
 app = flask.Flask("meal_schedule")
-app.check_info = 'meal_shedule'
+app.check_info = 'meal_schedule'
 
 
-@app.route('/get_shedule_names', methods=['GET'])
-def get_shedule_names():
-    return json.dumps(get_names(SHEDULES_TABLE_NAME))
+@app.route('/get_schedule_names', methods=['GET'])
+def get_schedule_names():
+    return json.dumps(get_names(SCHEDULES_TABLE_NAME))
 
 
-@app.route('/get_dayshedule_names', methods=['GET'])
-def get_dayshedule_names():
-    return json.dumps(get_names(DAYSHEDULES_TABLE_NAME))
+@app.route('/get_day_schedule_names', methods=['GET'])
+def get_day_schedule_names():
+    return json.dumps(get_names(DAY_SCHEDULES_TABLE_NAME))
 
 
 @app.route('/get_meal_names', methods=['GET'])
@@ -21,16 +21,16 @@ def get_meal_names():
     return json.dumps(get_names(MEALS_TABLE_NAME))
 
 
-@app.route('/get_shedule', methods=['GET'])
-def get_shedule():
+@app.route('/get_schedule', methods=['GET'])
+def get_schedule():
     if 'name' in flask.request.args:
-        return json.dumps(get(SHEDULES_TABLE_NAME, flask.request.args['name']))
+        return json.dumps(get(SCHEDULES_TABLE_NAME, flask.request.args['name']))
 
 
-@app.route('/get_dayshedule', methods=['GET'])
-def get_dayshedule():
+@app.route('/get_day_schedule', methods=['GET'])
+def get_day_schedule():
     if 'name' in flask.request.args:
-        return json.dumps(get(DAYSHEDULES_TABLE_NAME, flask.request.args['name']))
+        return json.dumps(get(DAY_SCHEDULES_TABLE_NAME, flask.request.args['name']))
 
 
 @app.route('/get_meal', methods=['GET'])

@@ -2,18 +2,18 @@ import client_methods
 
 
 def get_all_functions(_class):
-    return [key for key in _class.__dict__ if not key.startswith("_")]
+    return [key for key in _class.__dict__ if not key.startswith("private")]
 
 
-opening_string = "Glad to see you in the 'MEAL SHEDULE'. We will notify you when to buy and eat products." + \
-                 "\nAll you need to do is to choose shedule or make your own and update products you have"
+opening_string = "Glad to see you in the 'MEAL SCHEDULE'. We will notify you when to buy and eat products." + \
+                 "\nAll you need to do is to choose schedule or make your own and update products you have"
 help_string = "Options:" +\
               "\n 'exit' -ends the programm" + \
-              "\n 'show' -shows your shedule if it exists" + \
-              "\n 'notify' -notifies you to eat and buy products if you have shedule" + \
+              "\n 'show' -shows your schedule if it exists" + \
+              "\n 'notify' -notifies you to eat and buy products if you have schedule" + \
               "\n 'update_product_list' -allows you to change product list" + \
               "\n 'clear_product_list' -clears product list" + \
-              "\n 'update_shedule' -allows you to change shedule" + \
+              "\n 'update_schedule' -allows you to change schedule" + \
               "\n all methods don't require arguments"
 
 if __name__ == '__main__':
@@ -23,8 +23,8 @@ if __name__ == '__main__':
     while not check_connection:
         try:
             server_url = input("To start using client, enter server url in quotes: ")
-            client._set_url(server_url)
-            check_connection = client._check_connection()
+            client.private_set_url(server_url)
+            check_connection = client.private_check_connection()
         except Exception:
             print("url incorrect, try again")
 
@@ -41,12 +41,12 @@ if __name__ == '__main__':
                 try:
                     getattr(client, function)(*args)
                 except Exception as e:
-                    print('Your request is incorrect and caused exception: ', "\n", e, "\n",
-                          "Write 'help' to revise request type.")
+                    print('Your request is incorrect and caused exception: ', e,
+                          "Write 'help' to revise request type.", sep='\n')
             elif function == 'help':
                 print(help_string)
             elif function == 'exit':
-                client._set_notifier()
+                client.private_set_notifier()
                 end_of_prog = True
                 print('See you again')
             else:

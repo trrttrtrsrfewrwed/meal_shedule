@@ -1,6 +1,6 @@
 import requests
 import json
-import client_shedule
+import client_schedule
 import collections
 
 
@@ -18,47 +18,50 @@ class Client:
 
     def update_product_list(self):
         self.client_notifier.update_product_list()
+        self.private_set_notifier()
 
     def clear_product_list(self):
         self.client_notifier.clear_product_list()
+        self.private_set_notifier()
 
-    def update_shedule(self):
-        print("Now your shedule is: \n" + self.client_notifier.shedule.show())
-        response = input("Do you want to change your shedule/choose new one/go back to menu? '1'/'2'/'3':").strip()
+    def update_schedule(self):
+        print("Now your schedule is: \n" + self.client_notifier.schedule.show())
+        response = input("Do you want to change your schedule/choose new one/go back to menu? '1'/'2'/'3':").strip()
         if response == '1':
-            self.client_notifier.change_shedule(self.database_client)
+            self.client_notifier.change_schedule(self.database_client)
         elif response == '2':
-            self.client_notifier.shedule = client_shedule.choose('shedule', self.database_client)
+            self.client_notifier.schedule = client_schedule.choose('schedule', self.database_client)
         elif response == '3':
             pass
         else:
             print('Incorrect format. You were redirected to the main menu.')
         self.show()
+        self.private_set_notifier()
         print('You are in the main menu now')
 
-    def _set_url(self, server_url):
+    def private_set_url(self, server_url):
         server_url = server_url[1:-1].strip()
         if server_url[-1] == '/':
             server_url = server_url[:-1]
         self.server_url = server_url
-        self._get_notifier()
+        self.private_get_notifier()
         self.database_client = DatabaseClient(self.server_url)
 
-    def _get_notifier(self):
+    def private_get_notifier(self):
         response = requests.get(self.server_url + '/get_notifier').json()
-        self.client_notifier = get_notifier_from_json(response)
+        self.client_notifier = client_schedule.Notifier.get_notifier_from_json(response)
 
-    def _set_notifier(self):
+    def private_set_notifier(self):
         requests.post(self.server_url + '/set_notifier', data=json.dumps(self.client_notifier.get_json()))
 
-    def _check_connection(self):
+    def private_check_connection(self):
         try:
             response = requests.get(self.server_url + '/check').json()
             check = response['check_info']
-        except Exception as e:
+        except Exception:
             print("url incorrect, try again")
             return False
-        if check == 'meal_shedule':
+        if check == 'meal_schedule':
             print("connection successful")
             return True
         else:
@@ -70,24 +73,24 @@ class DatabaseClient:
     def __init__(self, server_url):
         self.server_url = server_url
 
-    def get_shedule_names(self):
-        response = requests.get(self.server_url + '/get_shedule_names').json()
+    def get_schedule_names(self):
+        response = requests.get(self.server_url + '/get_schedule_names').json()
         return response
 
-    def get_dayshedule_names(self):
-        response = requests.get(self.server_url + '/get_dayshedule_names').json()
+    def get_day_schedule_names(self):
+        response = requests.get(self.server_url + '/get_day_schedule_names').json()
         return response
 
     def get_meal_names(self):
         response = requests.get(self.server_url + '/get_meal_names').json()
         return response
 
-    def get_shedule(self, name):
-        response = requests.get(self.server_url + "/get_shedule?name='{}'".format(name)).json()
+    def get_schedule(self, name):
+        response = requests.get(self.server_url + "/get_schedule?name='{}'".format(name)).json()
         return response
 
-    def get_dayshedule(self, name):
-        response = requests.get(self.server_url + "/get_dayshedule?name='{}'".format(name)).json()
+    def get_day_schedule(self, name):
+        response = requests.get(self.server_url + "/get_day_schedule?name='{}'".format(name)).json()
         return response
 
     def get_meal(self, name):
@@ -96,12 +99,6 @@ class DatabaseClient:
 
 
 
-
-def get_notifier_from_json(response):
-    json_shedule = response['shedule']
-    product_counter = collections.Counter(response['product_counter'])
-    shedule = client_shedule.get_shedule_from_json(json_shedule)
-    return client_shedule.Notifier(shedule, product_counter)
 
 
 

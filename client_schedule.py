@@ -1,36 +1,5 @@
 import datetime
 from collections import Counter, OrderedDict
-import json
-
-
-def get_shedule_from_json(json_shedule, with_updating_date=False):
-    dayshedules = []
-
-    for json_date, json_rangeshedules in json_shedule.items():
-        temp = json_date.split("-")
-        d = datetime.date(int(temp[0]), int(temp[1]), int(temp[2]))
-        dayshedules.append([d, get_dayshedule_from_json(json_rangeshedules)])
-    if with_updating_date is True:
-        start_date = min(key[0] for key in dayshedules)
-        delta = datetime.date.today() - start_date
-        if delta > datetime.timedelta(0):
-            for key in dayshedules:
-                key[0] += delta
-    return Shedule(dayshedules)
-
-
-def get_dayshedule_from_json(json_rangeshedules):
-    rangeshedules = []
-
-    for json_rangeshedule in json_rangeshedules:
-        rangeshedules.append(RangeShedule(product_counter=json_rangeshedule["product_counter"],
-                                          start_hour=json_rangeshedule["start_hour"],
-                                          end_hour=json_rangeshedule["end_hour"]))
-    return DayShedule(rangeshedules)
-
-
-def show_dict(menu):
-    return ''.join('{} pieces of {}\n'.format(value, key) for key, value in menu.items())
 
 
 def list_products(product_counter):
@@ -41,11 +10,11 @@ def choose(name, database_client):
     answer = None
     want_to_choose = True
     print('You can choose from the following ' + name + 's: ')
-    if name == 'shedule':
-        for name_ in database_client.get_shedule_names():
+    if name == 'schedule':
+        for name_ in database_client.get_schedule_names():
             print(name_)
-    elif name == 'day shedule':
-        for name_ in database_client.get_dayshedule_names():
+    elif name == 'day schedule':
+        for name_ in database_client.get_day_schedule_names():
             print(name_)
     elif name == 'menu':
         for name_ in database_client.get_meal_names():
@@ -57,22 +26,23 @@ def choose(name, database_client):
         try:
             if response[0] == '?' or '+':
                 resp = response.split(' ')
-                if name == 'shedule':
-                    chosen = get_shedule_from_json(database_client.get_shedule(resp[1]))
-                elif name == 'day shedule':
-                    chosen = get_dayshedule_from_json(database_client.get_dayshedule(resp[1]))
+                if name == 'schedule':
+                    chosen = Schedule.get_schedule_from_json(database_client.get_schedule(resp[1]))
+                    chosen.up_to_date_with_lag()
+                elif name == 'day schedule':
+                    chosen = DaySchedule.get_day_schedule_from_json(database_client.get_day_schedule(resp[1]))
                 else:
                     chosen = database_client.get_meal(resp[1])
                 if response[0] == '+':
                     answer = chosen
                     want_to_choose = False
                 else:
-                    if name == 'shedule':
+                    if name == 'schedule':
                         print(chosen.show())
-                    elif name == 'day shedule':
+                    elif name == 'day schedule':
                         print(chosen.show())
                     else:
-                        print(show_dict(chosen))
+                        print(list_products(chosen))
             else:
                 print("Incorrect format.")
         except Exception:
@@ -107,11 +77,11 @@ def update_menu(product_counter, name):
                     product_counter -= Counter({product_name: amount})
             else:
                 print("Incorrect format. Write '.' if you want to exit this form")
-        except Exception as e:
+        except Exception:
             print("Incorrect format. Write '.' if you want to exit this form")
 
 
-def change_rangeshedule(rangeshedule):
+def change_range_schedule(range_schedule):
     range_process = True
     while range_process is True:
         action = input("Do you want to change start hour/end hour/menu? '1'/'2'/'3':").strip()
@@ -119,8 +89,8 @@ def change_rangeshedule(rangeshedule):
             print("Write new start hour")
             try:
                 start_hour = int(input())
-                if 0 < start_hour < rangeshedule.end_hour:
-                    rangeshedule.start_hour = start_hour
+                if 0 < start_hour < range_schedule.end_hour:
+                    range_schedule.start_hour = start_hour
                 else:
                     print("Start hour must be >= 0 and < end hour")
             except Exception:
@@ -129,14 +99,14 @@ def change_rangeshedule(rangeshedule):
             print("Write new end hour")
             try:
                 end_hour = int(input())
-                if rangeshedule.start_hour < end_hour < 25:
-                    rangeshedule.end_hour = end_hour
+                if range_schedule.start_hour < end_hour < 25:
+                    range_schedule.end_hour = end_hour
                 else:
                     print("Start hour must be <= 24 and > start hour")
             except Exception:
                 print("Incorrect end hour format.")
         elif action == '3':
-            update_menu(rangeshedule.product_counter, name="menu")
+            update_menu(range_schedule.product_counter, name="menu")
         else:
             print('Incorrect format.')
         range_process_loop = input(
@@ -145,7 +115,7 @@ def change_rangeshedule(rangeshedule):
             range_process = False
 
 
-def change_dayshedule(dayshedule, database_client):
+def change_day_schedule(day_schedule, database_client):
     day_process = True
     while day_process is True:
         resp = input(
@@ -158,37 +128,37 @@ def change_dayshedule(dayshedule, database_client):
                     "Write range you want to " + action[resp] + " in format [start_hour] [end_hour](23:59 = 24):").strip().split(" ")
                 try:
                     if resp == '1':
-                        for rangeshedule in dayshedule.rangeshedules:
-                            if rangeshedule.start_hour == int(range_[0]) and rangeshedule.end_hour == int(range_[1]):
-                                print(rangeshedule.show())
-                                change_rangeshedule(rangeshedule)
-                                print(rangeshedule.show())
+                        for range_schedule in day_schedule.range_schedules:
+                            if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
+                                print(range_schedule.show())
+                                change_range_schedule(range_schedule)
+                                print(range_schedule.show())
                                 break
                         else:
                             print("Incorrect range. Try again")
                     elif resp == '2':
-                        for rangeshedule in dayshedule.rangeshedules:
-                            if rangeshedule.start_hour == int(range_[0]) and rangeshedule.end_hour == int(range_[1]):
+                        for range_schedule in day_schedule.range_schedules:
+                            if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
                                 print("You already have this range")
                                 break
                         else:
                             if 0 <= (int(range_[0])) < (int(range_[1])) <= 24:
-                                rangeshedule = RangeShedule({}, start_hour=int(range_[0]), end_hour=int(range_[1]))
-                                print(rangeshedule.show())
+                                range_schedule = RangeSchedule({}, start_hour=int(range_[0]), end_hour=int(range_[1]))
+                                print(range_schedule.show())
                                 query = input(
                                     "Do you want to fill menu by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
                                 if query != 'Y':
-                                    rangeshedule.product_counter = Counter(choose("menu", database_client))
+                                    range_schedule.product_counter = Counter(choose("menu", database_client))
                                 else:
-                                    change_rangeshedule(rangeshedule)
-                                dayshedule.rangeshedules.append(rangeshedule)
-                                print(rangeshedule.show())
+                                    change_range_schedule(range_schedule)
+                                day_schedule.range_schedules.append(range_schedule)
+                                print(range_schedule.show())
                             else:
                                 print("Incorrect range. Try again")
                     elif resp == '3':
-                        for rangeshedule in dayshedule.rangeshedules:
-                            if rangeshedule.start_hour == int(range_[0]) and rangeshedule.end_hour == int(range_[1]):
-                                dayshedule.rangeshedules.remove(rangeshedule)
+                        for range_schedule in day_schedule.range_schedules:
+                            if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
+                                day_schedule.range_schedules.remove(range_schedule)
                                 print("deleted")
                                 break
                         else:
@@ -205,24 +175,24 @@ def change_dayshedule(dayshedule, database_client):
 
 
 class Notifier:
-    def __init__(self, shedule, product_counter):
-        self.shedule = shedule
+    def __init__(self, schedule, product_counter):
+        self.schedule = schedule
         self.product_counter = product_counter
 
     def notify(self):
-        if datetime.date.today() in self.shedule.shedule:
-            return self.shedule.notify(self.product_counter)
+        if datetime.date.today() in self.schedule.schedule:
+            return self.schedule.notify(self.product_counter)
         else:
-            return "You don't have shedule for today"
+            return "You don't have schedule for today"
 
     def show(self):
-        self.shedule.up_to_date()
-        return self.shedule.show()
+        self.schedule.up_to_date()
+        return self.schedule.show()
 
-    def change_shedule(self, database_client):
+    def change_schedule(self, database_client):
         process = True
         while process is True:
-            response = input("Do you want to change/add/delete shedule of one of the days/go back to menu? '1'/'2'/'3'/'4':").strip()
+            response = input("Do you want to change/add/delete schedule of one of the days/go back to menu? '1'/'2'/'3'/'4':").strip()
             if response == '1' or response == '2' or response == '3':
                 want_to_do_smth = True
                 action = {'1': "change", '2': "add", '3': "delete"}
@@ -236,35 +206,35 @@ class Notifier:
                         print("Incorrect date type. Try again")
                         continue
                     if response == '1':
-                        if change_date in self.shedule.shedule:
-                            dayshedule = self.shedule.get_dayshedule(change_date)
-                            print(dayshedule.show())
-                            change_dayshedule(dayshedule, database_client)
-                            self.shedule.shedule[change_date] = dayshedule
-                            print(dayshedule.show())
+                        if change_date in self.schedule.schedule:
+                            day_schedule = self.schedule.get_day_schedule(change_date)
+                            print(day_schedule.show())
+                            change_day_schedule(day_schedule, database_client)
+                            self.schedule.schedule[change_date] = day_schedule
+                            print(day_schedule.show())
                         else:
-                            print("No shedule of that day. Try again")
+                            print("No schedule of that day. Try again")
                     elif response == '2':
-                        if change_date in self.shedule.shedule:
-                            print("You already have shedule of this day")
+                        if change_date in self.schedule.schedule:
+                            print("You already have schedule of this day")
                         else:
-                            dayshedule = DayShedule([])
+                            day_schedule = DaySchedule([])
                             query = input(
-                                "Do you want to fill day shedule by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
+                                "Do you want to fill day schedule by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
                             if query != 'Y':
-                                dayshedule = choose("day shedule", database_client)
+                                day_schedule = choose("day schedule", database_client)
                             else:
-                                change_dayshedule(dayshedule, database_client)
-                            self.shedule.shedule[change_date] = dayshedule
-                            print(dayshedule.show())
+                                change_day_schedule(day_schedule, database_client)
+                            self.schedule.schedule[change_date] = day_schedule
+                            print(day_schedule.show())
                     elif response == '3':
-                        if change_date in self.shedule.shedule:
-                            del self.shedule.shedule[change_date]
+                        if change_date in self.schedule.schedule:
+                            del self.schedule.schedule[change_date]
                             print("deleted")
                         else:
-                            print("You don't have this shedule")
+                            print("You don't have this schedule")
                     loop = input(
-                        "Do you want to " + action[response] + " shedule of another day? 'Y'/'n'(not 'Y'):").strip()
+                        "Do you want to " + action[response] + " schedule of another day? 'Y'/'n'(not 'Y'):").strip()
                     if loop != 'Y':
                         want_to_do_smth = False
             elif response == '4':
@@ -282,65 +252,96 @@ class Notifier:
         print('You are in the main menu now')
 
     def get_json(self):
-        return {"shedule": self.shedule.get_json(), "product_counter": dict(self.product_counter)}
+        return {"schedule": self.schedule.get_json(), "product_counter": dict(self.product_counter)}
+
+    @staticmethod
+    def get_notifier_from_json(response):
+        json_schedule = response['schedule']
+        product_counter = Counter(response['product_counter'])
+        schedule = Schedule.get_schedule_from_json(json_schedule)
+        return Notifier(schedule, product_counter)
 
 
-class Shedule:
-    def __init__(self, dayshedules):
-        self.shedule = OrderedDict(sorted(dayshedules, key=lambda x: x[0]))
+class Schedule:
+    def __init__(self, day_schedules):
+        self.schedule = OrderedDict(sorted(day_schedules, key=lambda x: x[0]))
+
+    def up_to_date_with_lag(self):
+        min_date = min(key for key in self.schedule)
+        time_delta = datetime.date.today() - min_date
+        new_schedule = {}
+        for key, value in self.schedule.items():
+            new_schedule[key + time_delta] = value
+        self.schedule = new_schedule
 
     def up_to_date(self):
         keys_to_pop = []
-        for key in self.shedule:
+        for key in self.schedule:
             if key < datetime.date.today():
                 keys_to_pop.append(key)
         for key in keys_to_pop:
-            self.shedule.pop(key)
+            self.schedule.pop(key)
 
-    def get_dayshedule(self, key):
-        return self.shedule[key]
+    def get_day_schedule(self, key):
+        return self.schedule[key]
 
     def notify(self, product_counter):
-        return self.shedule[datetime.date.today()].notify(product_counter)
+        return self.schedule[datetime.date.today()].notify(product_counter)
 
     def show(self):
         result = ""
-        for key, value in sorted(self.shedule.items(), key=lambda x: x[0]):
+        for key, value in sorted(self.schedule.items(), key=lambda x: x[0]):
             result += key.strftime("%m.%d") + "\n+++++++++++++++++++++++++++++++++++++++\n\n" \
                       + value.show() + "---------------------------------------\n\n"
         return result
 
     def get_json(self):
         json = {}
-        for key, value in self.shedule.items():
+        for key, value in self.schedule.items():
             json[key.strftime("%Y-%m-%d")] = value.get_json()
 
         return json
 
+    @staticmethod
+    def get_schedule_from_json(json_schedule, with_updating_date=False):
+        day_schedules = []
 
-class DayShedule:
-    def __init__(self, rangeshedules):
-        self.rangeshedules = rangeshedules
+        for json_date, json_range_schedules in json_schedule.items():
+            temp = json_date.split("-")
+            d = datetime.date(int(temp[0]), int(temp[1]), int(temp[2]))
+            day_schedules.append([d, DaySchedule.get_day_schedule_from_json(json_range_schedules)])
+        if with_updating_date is True:
+            start_date = min(key[0] for key in day_schedules)
+            delta = datetime.date.today() - start_date
+            if delta > datetime.timedelta(0):
+                for key in day_schedules:
+                    key[0] += delta
+        return Schedule(day_schedules)
+
+
+class DaySchedule:
+    def __init__(self, range_schedules):
+        self.range_schedules = range_schedules
 
     def show(self):
-        if len(self.rangeshedules) > 0:
-            self.rangeshedules.sort(key=lambda x: (x.start_hour, x.end_hour))
-            return ''.join(str(i+1) + ")\n" + self.rangeshedules[i].show() + "\n" for i in range(len(self.rangeshedules)))
+        if len(self.range_schedules) > 0:
+            self.range_schedules.sort(key=lambda x: (x.start_hour, x.end_hour))
+            return ''.join(str(i+1) + ")\n" + self.range_schedules[i].show() + "\n" for i in range(len(self.range_schedules)))
         else:
             return ''
 
     def notify(self, product_counter):
-        self.rangeshedules.sort(key=lambda x: (x.end_hour, x.start_hour))
+        self.range_schedules.sort(key=lambda x: (x.end_hour, x.start_hour))
         curr_hour = datetime.datetime.now().hour
         result = "You need to eat these products: \n"
         must_be_purchased = Counter()
-        for rangeshedule in self.rangeshedules:
-            if rangeshedule.end_hour > curr_hour:
-                must_be_purchased += rangeshedule.product_counter
-                result += "from {} to {}:\n".format(str(rangeshedule.start_hour) + " o'clock",
-                                                    str(rangeshedule.end_hour) + " o'clock"
-                                                    if rangeshedule.end_hour < 24 else "the end of the day")
-                result += list_products(rangeshedule.product_counter)
+        for range_schedule in self.range_schedules:
+            if range_schedule.end_hour > curr_hour:
+                must_be_purchased += range_schedule.product_counter
+                result += "from {} to {}:\n".format(str(range_schedule.start_hour) + " o'clock",
+                                                    str(range_schedule.end_hour) + " o'clock"
+                                                    if range_schedule.end_hour < 24 else "the end of the day")
+                result += list_products(range_schedule.product_counter)
         must_be_purchased -= product_counter
         result += "You are lacking: \n"
         result += list_products(must_be_purchased)
@@ -349,14 +350,24 @@ class DayShedule:
     def get_json(self):
         json = []
 
-        for rangeshedule in self.rangeshedules:
-            json.append({"start_hour": rangeshedule.start_hour,
-                         "end_hour": rangeshedule.end_hour,
-                         "product_counter": dict(rangeshedule.product_counter)})
+        for range_schedule in self.range_schedules:
+            json.append({"start_hour": range_schedule.start_hour,
+                         "end_hour": range_schedule.end_hour,
+                         "product_counter": dict(range_schedule.product_counter)})
         return json
 
+    @staticmethod
+    def get_day_schedule_from_json(json_range_schedules):
+        range_schedules = []
 
-class RangeShedule:
+        for json_range_schedule in json_range_schedules:
+            range_schedules.append(RangeSchedule(product_counter=json_range_schedule["product_counter"],
+                                               start_hour=json_range_schedule["start_hour"],
+                                               end_hour=json_range_schedule["end_hour"]))
+        return DaySchedule(range_schedules)
+
+
+class RangeSchedule:
     def __init__(self, product_counter, start_hour=0, end_hour=24):
         self.start_hour = start_hour
         self.end_hour = end_hour

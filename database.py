@@ -89,5 +89,5 @@ def create_tables():
                                 )
                            '''.format(NOTIFIER_TABLE_NAME))
         cur.execute("""INSERT INTO {} VALUES ('{}')""".format(NOTIFIER_TABLE_NAME,
-                                                              '{"shedule": {}, "product_counter": {}}'))
+                                                              '{"schedule": {}, "product_counter": {}}'))
         cur.close()
