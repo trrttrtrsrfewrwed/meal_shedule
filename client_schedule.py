@@ -6,48 +6,85 @@ def list_products(product_counter):
     return ''.join("{} pieces of {}\n".format(value, key) for key, value in product_counter.items()) + "\n"
 
 
-def choose(name, database_client):
+def choose_schedule(database_client):
     answer = None
     want_to_choose = True
-    print('You can choose from the following ' + name + 's: ')
-    if name == 'schedule':
-        for name_ in database_client.get_schedule_names():
-            print(name_)
-    elif name == 'day schedule':
-        for name_ in database_client.get_day_schedule_names():
-            print(name_)
-    elif name == 'menu':
-        for name_ in database_client.get_meal_names():
-            print(name_)
-    print("To see " + name + " write '? [name]'. For example '? delicious'. Choose name from the previous list.")
-    print("To choose " + name + " write '+ [name]'. For example '+ delicious'. Choose name from the previous list.")
+    print('You can choose from the following schedules: ')
+    for name_ in database_client.get_schedule_names():
+        print(name_)
+    print("To see schedule write '? [name]'. For example '? delicious'. Choose name from the previous list.")
+    print("To choose schedule write '+ [name]'. For example '+ delicious'. Choose name from the previous list.")
     while want_to_choose is True:
         response = input()
         try:
             if response[0] == '?' or '+':
                 resp = response.split(' ')
-                if name == 'schedule':
-                    chosen = Schedule.get_schedule_from_json(database_client.get_schedule(resp[1]))
-                    chosen.up_to_date_with_lag()
-                elif name == 'day schedule':
-                    chosen = DaySchedule.get_day_schedule_from_json(database_client.get_day_schedule(resp[1]))
-                else:
-                    chosen = database_client.get_meal(resp[1])
+                chosen = Schedule.get_schedule_from_json(database_client.get_schedule(resp[1]))
+                chosen.up_to_date_with_lag()
                 if response[0] == '+':
                     answer = chosen
                     want_to_choose = False
                 else:
-                    if name == 'schedule':
-                        print(chosen.show())
-                    elif name == 'day schedule':
-                        print(chosen.show())
-                    else:
-                        print(list_products(chosen))
+                    print(chosen.show())
             else:
                 print("Incorrect format.")
         except Exception:
             print("Incorrect format.")
-    print('You have chosen ' + name)
+    print('You have chosen schedule')
+    return answer
+
+
+def choose_day_schedule(database_client):
+    answer = None
+    want_to_choose = True
+    print('You can choose from the following day schedules: ')
+    for name_ in database_client.get_day_schedule_names():
+        print(name_)
+    print("To see day schedule write '? [name]'. For example '? delicious'. Choose name from the previous list.")
+    print("To choose day schedule write '+ [name]'. For example '+ delicious'. Choose name from the previous list.")
+    while want_to_choose is True:
+        response = input()
+        try:
+            if response[0] == '?' or '+':
+                resp = response.split(' ')
+                chosen = DaySchedule.get_day_schedule_from_json(database_client.get_day_schedule(resp[1]))
+                if response[0] == '+':
+                    answer = chosen
+                    want_to_choose = False
+                else:
+                    print(chosen.show())
+            else:
+                print("Incorrect format.")
+        except Exception:
+            print("Incorrect format.")
+    print('You have chosen day schedule')
+    return answer
+
+
+def choose_menu(database_client):
+    answer = None
+    want_to_choose = True
+    print('You can choose from the following menus: ')
+    for name_ in database_client.get_meal_names():
+        print(name_)
+    print("To see menu write '? [name]'. For example '? delicious'. Choose name from the previous list.")
+    print("To choose menu write '+ [name]'. For example '+ delicious'. Choose name from the previous list.")
+    while want_to_choose is True:
+        response = input()
+        try:
+            if response[0] == '?' or '+':
+                resp = response.split(' ')
+                chosen = database_client.get_meal(resp[1])
+                if response[0] == '+':
+                    answer = chosen
+                    want_to_choose = False
+                else:
+                    print(list_products(chosen))
+            else:
+                print("Incorrect format.")
+        except Exception:
+            print("Incorrect format.")
+    print('You have chosen menu')
     return answer
 
 
@@ -115,59 +152,89 @@ def change_range_schedule(range_schedule):
             range_process = False
 
 
-def change_day_schedule(day_schedule, database_client):
+def change_range(day_schedule):
+    want_to_change_range = True
+    while want_to_change_range is True:
+        range_ = input(
+            "Write range you want to change in format [start_hour] [end_hour](23:59 = 24):").strip().split(" ")
+        try:
+            for range_schedule in day_schedule.range_schedules:
+                if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
+                    print(range_schedule.show())
+                    change_range_schedule(range_schedule)
+                    print(range_schedule.show())
+                    break
+            else:
+                print("Incorrect range. Try again")
+        except Exception:
+            print("Incorrect range format. Try again")
+        range_loop = input("Do you want to change another range? 'Y'/'n'(not 'Y'):").strip()
+        if range_loop != 'Y':
+            want_to_change_range = False
+
+
+def add_range(day_schedule, database_client):
+    want_to_add_range = True
+    while want_to_add_range is True:
+        range_ = input(
+            "Write range you want to add in format [start_hour] [end_hour](23:59 = 24):").strip().split(" ")
+        try:
+            for range_schedule in day_schedule.range_schedules:
+                if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
+                    print("You already have this range")
+                    break
+            else:
+                if 0 <= (int(range_[0])) < (int(range_[1])) <= 24:
+                    range_schedule = RangeSchedule({}, start_hour=int(range_[0]), end_hour=int(range_[1]))
+                    print(range_schedule.show())
+                    query = input(
+                        "Do you want to fill menu by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
+                    if query != 'Y':
+                        range_schedule.product_counter = Counter(choose_menu(database_client))
+                    else:
+                        change_range_schedule(range_schedule)
+                    day_schedule.range_schedules.append(range_schedule)
+                    print(range_schedule.show())
+                else:
+                    print("Incorrect range. Try again")
+        except Exception:
+            print("Incorrect range format. Try again")
+        range_loop = input("Do you want to add another range? 'Y'/'n'(not 'Y'):").strip()
+        if range_loop != 'Y':
+            want_to_add_range = False
+
+
+def delete_range(day_schedule):
+    want_to_delete_range = True
+    while want_to_delete_range is True:
+        range_ = input(
+            "Write range you want to delete in format [start_hour] [end_hour](23:59 = 24):").strip().split(" ")
+        try:
+            for range_schedule in day_schedule.range_schedules:
+                if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
+                    day_schedule.range_schedules.remove(range_schedule)
+                    print("deleted")
+                    break
+            else:
+                print("You don't have this range")
+        except Exception:
+            print("Incorrect range format. Try again")
+        range_loop = input("Do you want to delete another range? 'Y'/'n'(not 'Y'):").strip()
+        if range_loop != 'Y':
+            want_to_delete_range = False
+
+
+def modify_day_schedule(day_schedule, database_client):
     day_process = True
     while day_process is True:
         resp = input(
             "Do you want to change/add/delete one of the ranges/go back? '1'/'2'/'3'/'4':").strip()
-        if resp == '1' or resp == '2' or resp == '3':
-            want_to_change_or_add_or_delete_range = True
-            action = {'1': "change", '2': "add", '3': "delete"}
-            while want_to_change_or_add_or_delete_range is True:
-                range_ = input(
-                    "Write range you want to " + action[resp] + " in format [start_hour] [end_hour](23:59 = 24):").strip().split(" ")
-                try:
-                    if resp == '1':
-                        for range_schedule in day_schedule.range_schedules:
-                            if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
-                                print(range_schedule.show())
-                                change_range_schedule(range_schedule)
-                                print(range_schedule.show())
-                                break
-                        else:
-                            print("Incorrect range. Try again")
-                    elif resp == '2':
-                        for range_schedule in day_schedule.range_schedules:
-                            if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
-                                print("You already have this range")
-                                break
-                        else:
-                            if 0 <= (int(range_[0])) < (int(range_[1])) <= 24:
-                                range_schedule = RangeSchedule({}, start_hour=int(range_[0]), end_hour=int(range_[1]))
-                                print(range_schedule.show())
-                                query = input(
-                                    "Do you want to fill menu by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
-                                if query != 'Y':
-                                    range_schedule.product_counter = Counter(choose("menu", database_client))
-                                else:
-                                    change_range_schedule(range_schedule)
-                                day_schedule.range_schedules.append(range_schedule)
-                                print(range_schedule.show())
-                            else:
-                                print("Incorrect range. Try again")
-                    elif resp == '3':
-                        for range_schedule in day_schedule.range_schedules:
-                            if range_schedule.start_hour == int(range_[0]) and range_schedule.end_hour == int(range_[1]):
-                                day_schedule.range_schedules.remove(range_schedule)
-                                print("deleted")
-                                break
-                        else:
-                            print("You don't have this range")
-                except Exception:
-                    print("Incorrect range format. Try again")
-                range_loop = input("Do you want to " + action[resp] + " another range? 'Y'/'n'(not 'Y'):").strip()
-                if range_loop != 'Y':
-                    want_to_change_or_add_or_delete_range = False
+        if resp == '1':
+            change_range(day_schedule)
+        elif resp == '2':
+            add_range(day_schedule, database_client)
+        elif resp == '3':
+            delete_range(day_schedule)
         elif resp == '4':
             day_process = False
         else:
@@ -190,53 +257,95 @@ class Notifier:
         return self.schedule.show()
 
     def change_schedule(self, database_client):
+        want_to_do_smth = True
+        while want_to_do_smth is True:
+            mm_dd = input(
+                "Write the day schedule in which you want to change in format mm dd: ").strip().split(
+                " ")
+            try:
+                month = int(mm_dd[0])
+                day = int(mm_dd[1])
+                change_date = datetime.date(year=datetime.date.today().year, month=month, day=day)
+            except Exception:
+                print("Incorrect date type. Try again")
+                continue
+            if change_date in self.schedule.schedule:
+                day_schedule = self.schedule.get_day_schedule(change_date)
+                print(day_schedule.show())
+                modify_day_schedule(day_schedule, database_client)
+                self.schedule.schedule[change_date] = day_schedule
+                print(day_schedule.show())
+            else:
+                print("No schedule of that day. Try again")
+            loop = input(
+                "Do you want to change schedule of another day? 'Y'/'n'(not 'Y'):").strip()
+            if loop != 'Y':
+                want_to_do_smth = False
+
+    def add_schedule(self, database_client):
+        want_to_do_smth = True
+        while want_to_do_smth is True:
+            mm_dd = input(
+                "Write the day schedule in which you want to add in format mm dd: ").strip().split(
+                " ")
+            try:
+                month = int(mm_dd[0])
+                day = int(mm_dd[1])
+                change_date = datetime.date(year=datetime.date.today().year, month=month, day=day)
+            except Exception:
+                print("Incorrect date type. Try again")
+                continue
+            if change_date in self.schedule.schedule:
+                print("You already have schedule of this day")
+            else:
+                day_schedule = DaySchedule([])
+                query = input(
+                    "Do you want to fill day schedule by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
+                if query != 'Y':
+                    day_schedule = choose_day_schedule(database_client)
+                else:
+                    modify_day_schedule(day_schedule, database_client)
+                self.schedule.schedule[change_date] = day_schedule
+                print(day_schedule.show())
+            loop = input(
+                "Do you want to add schedule of another day? 'Y'/'n'(not 'Y'):").strip()
+            if loop != 'Y':
+                want_to_do_smth = False
+
+    def delete_schedule(self):
+        want_to_do_smth = True
+        while want_to_do_smth is True:
+            mm_dd = input(
+                "Write the day schedule in which you want to delete in format mm dd: ").strip().split(
+                " ")
+            try:
+                month = int(mm_dd[0])
+                day = int(mm_dd[1])
+                change_date = datetime.date(year=datetime.date.today().year, month=month, day=day)
+            except Exception:
+                print("Incorrect date type. Try again")
+                continue
+            if change_date in self.schedule.schedule:
+                del self.schedule.schedule[change_date]
+                print("deleted")
+            else:
+                print("You don't have this schedule")
+            loop = input(
+                "Do you want to delete schedule of another day? 'Y'/'n'(not 'Y'):").strip()
+            if loop != 'Y':
+                want_to_do_smth = False
+
+    def modify_schedule(self, database_client):
         process = True
         while process is True:
-            response = input("Do you want to change/add/delete schedule of one of the days/go back to menu? '1'/'2'/'3'/'4':").strip()
-            if response == '1' or response == '2' or response == '3':
-                want_to_do_smth = True
-                action = {'1': "change", '2': "add", '3': "delete"}
-                while want_to_do_smth is True:
-                    mm_dd = input("Write the day schedule in which you want to " + action[response] + " in format mm dd: ").strip().split(" ")
-                    try:
-                        month = int(mm_dd[0])
-                        day = int(mm_dd[1])
-                        change_date = datetime.date(year=datetime.date.today().year, month=month, day=day)
-                    except Exception:
-                        print("Incorrect date type. Try again")
-                        continue
-                    if response == '1':
-                        if change_date in self.schedule.schedule:
-                            day_schedule = self.schedule.get_day_schedule(change_date)
-                            print(day_schedule.show())
-                            change_day_schedule(day_schedule, database_client)
-                            self.schedule.schedule[change_date] = day_schedule
-                            print(day_schedule.show())
-                        else:
-                            print("No schedule of that day. Try again")
-                    elif response == '2':
-                        if change_date in self.schedule.schedule:
-                            print("You already have schedule of this day")
-                        else:
-                            day_schedule = DaySchedule([])
-                            query = input(
-                                "Do you want to fill day schedule by yourself/choose from existing 'Y'/'n'(not 'Y'):").strip()
-                            if query != 'Y':
-                                day_schedule = choose("day schedule", database_client)
-                            else:
-                                change_day_schedule(day_schedule, database_client)
-                            self.schedule.schedule[change_date] = day_schedule
-                            print(day_schedule.show())
-                    elif response == '3':
-                        if change_date in self.schedule.schedule:
-                            del self.schedule.schedule[change_date]
-                            print("deleted")
-                        else:
-                            print("You don't have this schedule")
-                    loop = input(
-                        "Do you want to " + action[response] + " schedule of another day? 'Y'/'n'(not 'Y'):").strip()
-                    if loop != 'Y':
-                        want_to_do_smth = False
+            response = input("Do you want to change/add/delete schedule"
+                             " of one of the days/go back to menu? '1'/'2'/'3'/'4':").strip()
+            if response == '1':
+                self.change_schedule(database_client)
+            elif response == '2':
+                self.add_schedule(database_client)
+            elif response == '3':
+                self.delete_schedule()
             elif response == '4':
                 print('You are in the main menu now')
                 process = False

@@ -28,9 +28,9 @@ class Client:
         print("Now your schedule is: \n" + self.client_notifier.schedule.show())
         response = input("Do you want to change your schedule/choose new one/go back to menu? '1'/'2'/'3':").strip()
         if response == '1':
-            self.client_notifier.change_schedule(self.database_client)
+            self.client_notifier.modify_schedule(self.database_client)
         elif response == '2':
-            self.client_notifier.schedule = client_schedule.choose('schedule', self.database_client)
+            self.client_notifier.schedule = client_schedule.choose_schedule(self.database_client)
         elif response == '3':
             pass
         else:
