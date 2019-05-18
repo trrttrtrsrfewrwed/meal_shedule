@@ -5,16 +5,16 @@ import json
 
 
 def add(table_name, dict_, cur):
-    query = '''INSERT INTO {} (name, "data") VALUES ('{}', '{}')'''
+    query = '''INSERT INTO {} (name, "data") VALUES (%s, %s)'''
     for key, value in dict_.items():
-        cur.execute(query.format(table_name, key, json.dumps(value)))
+        cur.execute(query.format(table_name), (key, json.dumps(value)))
 
 
 def update_notifier(json_notifier):
-    query = """UPDATE {} SET notifier = '{}'"""
+    query = """UPDATE {} SET notifier = %s"""
     with connect(**database_params) as conn:
         cur = conn.cursor()
-        cur.execute(query.format(NOTIFIER_TABLE_NAME, json.dumps(json_notifier)))
+        cur.execute(query.format(NOTIFIER_TABLE_NAME), (json.dumps(json_notifier), ))
         cur.close()
 
 
@@ -88,6 +88,6 @@ def create_tables():
                                     notifier json
                                 )
                            '''.format(NOTIFIER_TABLE_NAME))
-        cur.execute("""INSERT INTO {} VALUES ('{}')""".format(NOTIFIER_TABLE_NAME,
-                                                              '{"schedule": {}, "product_counter": {}}'))
+        cur.execute("""INSERT INTO {} VALUES (%s)""".format(NOTIFIER_TABLE_NAME),
+                    ('{"schedule": {}, "product_counter": {}}', ))
         cur.close()
