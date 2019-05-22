@@ -1,6 +1,6 @@
 from psycopg2 import connect
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-from CONSTS import *
+from consts import *
 import json
 
 
